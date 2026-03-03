@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 2026-03-03
+
+- 修复 Vercel 构建时 `scripts/migrate.mjs` 报 `invalid_connection_string` 的错误：将 `createPool` 改为 `createClient`，迁移脚本现使用直连（non-pooling）连接字符串，并添加显式的 `connect()`/`end()` 调用，连接字符串优先级为 `DATABASE_URL` → `POSTGRES_URL_NON_POOLING` → `POSTGRES_URL`。
+
 ## 2026-02-15
 
 - 调整 `records` 页提供商染色策略：覆盖 `GeminiCLI`、`Vertex`、`AIStudio`、`Antigravity`、`Claude`、`Codex`、`Qwen`、`Kimi`、`iFlow`（大小写不敏感），提升来源识别度与颜色区分度。
