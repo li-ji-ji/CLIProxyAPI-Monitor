@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, startTransition, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, startTransition, useCallback, useDeferredValue, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ComposedChart, ReferenceLine, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from "recharts";
 import { formatCompactNumber, formatNumberWithCommas } from "@/lib/utils";
 
@@ -595,6 +595,9 @@ export default function ExplorePage() {
     return points.filter(p => !hiddenModels.has(p.model));
   }, [points, hiddenModels]);
 
+  // 延迟版本，用于非交互的重计算（直方图、堆叠面积图等），避免阻塞交互响应
+  const deferredFilteredPoints = useDeferredValue(filteredPoints);
+
   const dataBounds = useMemo(() => {
     if (filteredPoints.length === 0) return null;
     let xMin = Number.POSITIVE_INFINITY;
@@ -697,14 +700,14 @@ export default function ExplorePage() {
 
   // 计算 Y 轴分布（token 数量的直方图数据）
   const yDistribution = useMemo(() => {
-    if (!activeDomain || filteredPoints.length === 0) return [];
+    if (!activeDomain || deferredFilteredPoints.length === 0) return [];
     
     const [yMin, yMax] = activeDomain.y;
     const binCount = 50; // 更多 bin 使曲线更平滑
     const binSize = (yMax - yMin) / binCount;
     const bins = new Array(binCount).fill(0);
     
-    for (const p of filteredPoints) {
+    for (const p of deferredFilteredPoints) {
       if (p.tokens < yMin || p.tokens > yMax) continue;
       const binIndex = Math.min(Math.floor((p.tokens - yMin) / binSize), binCount - 1);
       bins[binIndex]++;
@@ -715,18 +718,18 @@ export default function ExplorePage() {
       y: yMin + (i + 0.5) * binSize,
       count
     })).reverse();
-  }, [activeDomain, filteredPoints]);
+  }, [activeDomain, deferredFilteredPoints]);
 
   // 计算 X 轴分布（时间分布的面积图数据，用于范围选择器）
   const xDistribution = useMemo(() => {
-    if (!dataBounds || filteredPoints.length === 0) return [];
+    if (!dataBounds || deferredFilteredPoints.length === 0) return [];
     
     const [xMin, xMax] = dataBounds.x;
     const binCount = 100; // 更多 bin 使曲线更平滑
     const binSize = (xMax - xMin) / binCount;
     const bins = new Array(binCount).fill(0);
     
-    for (const p of filteredPoints) {
+    for (const p of deferredFilteredPoints) {
       if (p.ts < xMin || p.ts > xMax) continue;
       const binIndex = Math.min(Math.floor((p.ts - xMin) / binSize), binCount - 1);
       bins[binIndex] += p.tokens; // 累加 tokens 而不是计数
@@ -736,7 +739,7 @@ export default function ExplorePage() {
       ts: xMin + (i + 0.5) * binSize,
       tokens: totalTokens
     }));
-  }, [dataBounds, filteredPoints]);
+  }, [dataBounds, deferredFilteredPoints]);
 
   // 存储图表区域信息用于坐标转换
   const chartAreaRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -1222,7 +1225,7 @@ export default function ExplorePage() {
 
   // 计算堆叠面积图数据（按时间分组，各模型 token 累计）
   const stackedAreaData = useMemo(() => {
-    if (!activeDomain || filteredPoints.length === 0 || models.length === 0) return [];
+    if (!activeDomain || deferredFilteredPoints.length === 0 || models.length === 0) return [];
     
     const [xMin, xMax] = activeDomain.x;
     const rangeMs = xMax - xMin;
@@ -1264,7 +1267,7 @@ export default function ExplorePage() {
     }
 
     // 累加每个点到对应的桶（按绝对时间对齐）
-    for (const p of filteredPoints) {
+    for (const p of deferredFilteredPoints) {
       if (p.ts < xMin || p.ts > xMax) continue;
       if (!p.model) continue;
       const idx = Math.floor(p.ts / intervalMs) - startIndex;
@@ -1273,7 +1276,7 @@ export default function ExplorePage() {
     }
 
     return bins;
-  }, [activeDomain, filteredPoints, models]);
+  }, [activeDomain, deferredFilteredPoints, models]);
 
   // 堆叠面积图的最大值（用于归一化到左Y轴）
   const stackedMaxSum = useMemo((): number => {
@@ -1390,25 +1393,16 @@ export default function ExplorePage() {
       const radius = isHighlighted ? baseRadius + 1 : baseRadius;
       
       return (
-        <g style={{ cursor: 'pointer' }}>
-          {/* 透明扩大点击区域 */}
-          <circle 
-            cx={cx} 
-            cy={cy} 
-            r={radius + 3} 
-            fill="transparent"
-          />
-          {/* 可见的点 */}
-          <circle 
-            cx={cx} 
-            cy={cy} 
-            r={radius} 
-            fill={fill} 
-            fillOpacity={currentHighlighted && !isHighlighted ? 0.15 : 0.68}
-            stroke={isHighlighted ? "#ffffffce" : "none"}
-            strokeWidth={isHighlighted ? 1.2 : 0}
-          />
-        </g>
+        <circle 
+          cx={cx} 
+          cy={cy} 
+          r={radius}
+          fill={fill} 
+          fillOpacity={currentHighlighted && !isHighlighted ? 0.15 : 0.68}
+          stroke={isHighlighted ? "#ffffffce" : "none"}
+          strokeWidth={isHighlighted ? 1.2 : 0}
+          style={{ cursor: 'pointer' }}
+        />
       );
     };
   }, [modelColorMap]);
@@ -1797,7 +1791,7 @@ export default function ExplorePage() {
                       dataKey="ts"
                       domain={activeDomain?.x}
                       scale="time"
-                      tickFormatter={(v) => formatTs(Number(v))}
+                      tickFormatter={(v: number) => formatTs(Number(v))}
                       stroke="#cbd5e1"
                       fontSize={13}
                       allowDataOverflow
@@ -1815,7 +1809,7 @@ export default function ExplorePage() {
                       ticks={computedYTicks}
                       interval="preserveStartEnd"
                       tickMargin={6}
-                      tickFormatter={(v) => {
+                      tickFormatter={(v: number) => {
                         const num = Number(v);
                         const cached = yTickLabelMap?.get(num);
                         if (cached !== undefined) return cached;
