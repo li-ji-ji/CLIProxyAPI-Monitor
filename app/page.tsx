@@ -1382,7 +1382,7 @@ export default function DashboardPage() {
             <div className={`animate-card-float rounded-2xl p-5 shadow-sm ring-1 transition-all duration-200 ${darkMode ? "bg-gradient-to-br from-emerald-600/20 to-emerald-800/10 ring-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/20 hover:ring-emerald-500/50" : "bg-emerald-50 ring-emerald-200 hover:shadow-lg hover:ring-emerald-300"}`} style={{ animationDelay: '0.2s' }}>
               <div className="text-sm uppercase tracking-wide text-emerald-400">平均 TPM</div>
               <div className={`mt-3 text-2xl font-bold ${darkMode ? "text-white" : "text-slate-900"}`}>
-                {(() => { const v = overviewData.totalTokens / actualTimeSpan.minutes; return v >= 1000 ? formatCompactNumber(Math.round(v)) : v.toFixed(2); })()}
+                {(() => { const v = overviewData.totalTokens / actualTimeSpan.minutes; return v >= 1000 ? formatCompactNumber(Math.round(v)) : Number(v.toFixed(2)).toString(); })()}
               </div>
               <p className={`mt-2 text-xs ${darkMode ? "text-emerald-300/70" : "text-emerald-600/70"}`}>每分钟Token</p>
             </div>
@@ -1391,7 +1391,7 @@ export default function DashboardPage() {
             <div className={`animate-card-float rounded-2xl p-5 shadow-sm ring-1 transition-all duration-200 ${darkMode ? "bg-gradient-to-br from-blue-600/20 to-blue-800/10 ring-blue-500/30 hover:shadow-lg hover:shadow-blue-500/20 hover:ring-blue-500/50" : "bg-blue-50 ring-blue-200 hover:shadow-lg hover:ring-blue-300"}`} style={{ animationDelay: '0.25s' }}>
               <div className="text-sm uppercase tracking-wide text-blue-400">平均 RPM</div>
               <div className={`mt-3 text-2xl font-bold ${darkMode ? "text-white" : "text-slate-900"}`}>
-                {(overviewData.totalRequests / actualTimeSpan.minutes).toFixed(2)}
+                {(() => { const v = overviewData.totalRequests / actualTimeSpan.minutes; return v >= 1000 ? formatCompactNumber(Math.round(v)) : Number(v.toFixed(2)).toString(); })()}
               </div>
               <p className={`mt-2 text-xs ${darkMode ? "text-blue-300/70" : "text-blue-600/70"}`}>每分钟请求</p>
             </div>

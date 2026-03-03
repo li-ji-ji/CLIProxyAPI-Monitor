@@ -2,6 +2,9 @@
 
 ## 2026-03-03
 
+- 首页统计卡片数值优化：
+  - 平均 TPM、平均 RPM 均移除尾随零小数（`10.00` → `10`，`1.50` → `1.5`）。
+  - 平均 RPM 同步引入万级以上压缩显示（`>= 1000` 时显示 `1k`、`10k` 等）。
 - 完善数据库连接池配置说明：
   - 在 `README.md` 中新增“数据库连接池配置 (本地开发)”表格，详细列出 `DATABASE_POOL_MAX`、`DATABASE_POOL_IDLE_TIMEOUT_MS` 等环境变量的作用与默认值，便于开发者优化连接数占用。
 - 重构数据库连接层，支持通用 PostgreSQL 与 Neon 无服务器 WebSocket 双驱动：
@@ -12,7 +15,7 @@
   - 修复根本原因：`@vercel/postgres` `createPool` 强制要求池化连接串，不兼容直连 URL；构建时模块顶层初始化导致 `invalid_connection_string` 错误；`pg` 不支持 Neon serverless WebSocket 端点（`wss://host:443`）。
 - 修复 `pg` 驱动在小规格数据库下易触发 `53300`（连接槽耗尽）的问题：
   - 为运行时 `pg.Pool` 增加可配置连接池参数：`DATABASE_POOL_MAX`、`DATABASE_POOL_IDLE_TIMEOUT_MS`、`DATABASE_POOL_CONNECTION_TIMEOUT_MS`、`DATABASE_POOL_MAX_USES`。
-  - 默认将池大小收敛为 `2`，降低 Vercel 多实例并发下打满数据库连接槽的风险。
+  - 默认将池大小收敛为 `5`，降低 Vercel 多实例并发下打满数据库连接槽的风险。
 
 
 ## 2026-02-15
