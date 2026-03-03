@@ -37,7 +37,7 @@ function parseIntEnv(name: string, fallback: number, min = 0): number {
 }
 
 const pgPoolConfig = {
-  max: parseIntEnv("DATABASE_POOL_MAX", 6, 1),
+  max: parseIntEnv("DATABASE_POOL_MAX", 5, 1),
   idleTimeoutMillis: parseIntEnv("DATABASE_POOL_IDLE_TIMEOUT_MS", 10_000, 0),
   connectionTimeoutMillis: parseIntEnv("DATABASE_POOL_CONNECTION_TIMEOUT_MS", 5_000, 0),
   maxUses: parseIntEnv("DATABASE_POOL_MAX_USES", 7_500, 0)

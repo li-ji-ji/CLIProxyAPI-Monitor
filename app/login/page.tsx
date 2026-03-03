@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, FormEvent, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import * as NextNavigation from "next/navigation";
+const { useRouter, useSearchParams } = NextNavigation as any;
 import { LockKeyhole, Clock, Shield } from "lucide-react";
 
 function LoginPageContent() {
@@ -99,8 +100,8 @@ function LoginPageContent() {
         <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 p-8">
           {/* Logo 区域 */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-              <LockKeyhole className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 bg-amber-400/10 border-2 border-amber-400/50 rounded-2xl flex items-center justify-center mb-4">
+              <LockKeyhole className="w-8 h-8 text-amber-400" />
             </div>
             <h1 className="text-2xl font-bold text-slate-100">CLIProxyAPI Dashboard</h1>
             <p className="text-slate-400 mt-2">请输入密码以继续</p>
@@ -158,7 +159,7 @@ function LoginPageContent() {
             <button
               type="submit"
               disabled={loading || !password || isLocked}
-              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+              className="w-full py-3 px-4 bg-blue-500/15 text-blue-100 font-semibold rounded-lg border border-blue-400/30 hover:bg-blue-500/25 hover:border-blue-400/50 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {isLocked ? "账户已锁定" : loading ? "登录中..." : "登录"}
             </button>
@@ -167,7 +168,15 @@ function LoginPageContent() {
 
         {/* 底部提示 */}
         <p className="text-center text-slate-500 text-sm mt-6">
-          © 2025 CLIProxyAPI Monitor
+          © 2026{" "}
+          <a
+            href="https://github.com/sxjeru/CLIProxyAPI-Monitor"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-slate-300 transition-colors"
+          >
+            CLIProxyAPI Monitor
+          </a>
         </p>
       </div>
     </div>

@@ -2,12 +2,18 @@
 
 ## 2026-03-03
 
+- 完善数据库连接池配置说明：
+  - 在 `README.md` 中新增“数据库连接池配置 (本地开发)”表格，详细列出 `DATABASE_POOL_MAX`、`DATABASE_POOL_IDLE_TIMEOUT_MS` 等环境变量的作用与默认值，便于开发者优化连接数占用。
 - 重构数据库连接层，支持通用 PostgreSQL 与 Neon 无服务器 WebSocket 双驱动：
   - `lib/db/client.ts`：新增条件化驱动工厂，通过 URL 模式（含 `.neon.tech`）或环境变量 `DATABASE_DRIVER=neon|pg` 自动选择 `@neondatabase/serverless`（WebSocket）或 `pg.Pool`（标准 TCP）；Aiven、Supabase、RDS 等默认使用 `pg`。
   - 新增 `DATABASE_CA` 环境变量支持：`pg` 驱动下可传入 CA 证书 PEM 内容（原始或 Base64 编码），用于 Aiven、自建 PostgreSQL 等需要 `sslmode=verify-full` 的场景。
   - `scripts/migrate.mjs`：同步更新为动态驱动加载，支持 `DATABASE_CA`，迁移脚本与运行时保持策略一致。
   - 新增依赖：`@neondatabase/serverless`、`ws`、`@types/ws`、`pg`、`@types/pg`，移除对 `@vercel/postgres` 的直接依赖。
   - 修复根本原因：`@vercel/postgres` `createPool` 强制要求池化连接串，不兼容直连 URL；构建时模块顶层初始化导致 `invalid_connection_string` 错误；`pg` 不支持 Neon serverless WebSocket 端点（`wss://host:443`）。
+- 修复 `pg` 驱动在小规格数据库下易触发 `53300`（连接槽耗尽）的问题：
+  - 为运行时 `pg.Pool` 增加可配置连接池参数：`DATABASE_POOL_MAX`、`DATABASE_POOL_IDLE_TIMEOUT_MS`、`DATABASE_POOL_CONNECTION_TIMEOUT_MS`、`DATABASE_POOL_MAX_USES`。
+  - 默认将池大小收敛为 `2`，降低 Vercel 多实例并发下打满数据库连接槽的风险。
+
 
 ## 2026-02-15
 
@@ -48,10 +54,6 @@
 - 修复 `/api/sync` 在大数据量下可能失败的问题：
   - `auth_file_mappings` 与 `usage_records` 的批量写入改为分块执行，避免单条 SQL 过长或绑定参数过多。
   - 新增分块配置：`AUTH_FILES_INSERT_CHUNK_SIZE`（默认 `500`）、`USAGE_INSERT_CHUNK_SIZE`（默认 `1000`）。
-
-- 修复 `pg` 驱动在小规格数据库下易触发 `53300`（连接槽耗尽）的问题：
-  - 为运行时 `pg.Pool` 增加可配置连接池参数：`DATABASE_POOL_MAX`、`DATABASE_POOL_IDLE_TIMEOUT_MS`、`DATABASE_POOL_CONNECTION_TIMEOUT_MS`、`DATABASE_POOL_MAX_USES`。
-  - 默认将池大小收敛为 `2`，降低 Vercel 多实例并发下打满数据库连接槽的风险。
 
 - 升级开发依赖（`eslint-config-next`、`@types/node`），提升开发体验。
 
