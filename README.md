@@ -45,6 +45,7 @@
 | `DATABASE_POOL_MAX_USES` | 连接最大使用次数 | `7500` | 单个连接在关闭前可执行的最大查询数 |
 | `AUTH_FILES_INSERT_CHUNK_SIZE` | `auth_file_mappings` 批量插入块大小 | `500` | 大数据量时避免单条 SQL 过长 |
 | `USAGE_INSERT_CHUNK_SIZE` | `usage_records` 批量插入块大小 | `1000` | 大数据量时避免单条 SQL 过长 |
+| `NEXT_PUBLIC_SYNC_TIMEOUT_MS` | 数据同步超时时间 (毫秒) | `120000` | 前后端共享 |
 
 ## Local DEV
 1. 安装依赖：`pnpm install`

@@ -15,8 +15,11 @@ export function formatNumberWithCommas(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
 }
 
-// 简化大数：1000 -> 1k, 1000000 -> 1M
+// 简化大数：1000 -> 1k, 1000000 -> 1M, 1000000000 -> 1.00B
 export function formatCompactNumber(value: number) {
+  if (value >= 1_000_000_000) {
+    return (value / 1_000_000_000).toFixed(2) + 'B';
+  }
   if (value >= 1_000_000) {
     const scaledTimesTen = Math.floor((value * 10) / 1_000_000);
     const scaled = scaledTimesTen / 10;

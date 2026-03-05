@@ -14,7 +14,6 @@ export const runtime = "nodejs";
 const PASSWORD = process.env.PASSWORD || process.env.CLIPROXY_SECRET_KEY || "";
 const COOKIE_NAME = "dashboard_auth";
 const AUTH_FILES_TIMEOUT_MS = 15_000;
-const USAGE_TIMEOUT_MS = 60_000;
 
 function toPositiveInt(raw: string | undefined, fallback: number): number {
   if (!raw) return fallback;
@@ -23,6 +22,8 @@ function toPositiveInt(raw: string | undefined, fallback: number): number {
   return value;
 }
 
+// 可通过 NEXT_PUBLIC_SYNC_TIMEOUT_MS 环境变量调节（毫秒），默认 120 秒
+const USAGE_TIMEOUT_MS = toPositiveInt(process.env.NEXT_PUBLIC_SYNC_TIMEOUT_MS, 120_000);
 const AUTH_FILES_INSERT_CHUNK_SIZE = toPositiveInt(process.env.AUTH_FILES_INSERT_CHUNK_SIZE, 500);
 const USAGE_INSERT_CHUNK_SIZE = toPositiveInt(process.env.USAGE_INSERT_CHUNK_SIZE, 1000);
 

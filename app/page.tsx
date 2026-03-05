@@ -47,6 +47,8 @@ const hourFormatter = new Intl.DateTimeFormat("en-CA", {
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+// 可通过 NEXT_PUBLIC_SYNC_TIMEOUT_MS 环境变量调节（毫秒），默认 120 秒
+const SYNC_CLIENT_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_SYNC_TIMEOUT_MS) || 120_000;
 
 function formatDateInputValue(date: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -499,7 +501,7 @@ export default function DashboardPage() {
   }, []);
 
   // 执行数据同步
-  const doSync = useCallback(async (showMessage = true, triggerRefresh = true, timeout = 60000) => {
+  const doSync = useCallback(async (showMessage = true, triggerRefresh = true, timeout = SYNC_CLIENT_TIMEOUT_MS) => {
     if (syncingRef.current) return;
     syncingRef.current = true;
     setSyncing(true);
@@ -1315,9 +1317,19 @@ export default function DashboardPage() {
                 ) : null}
               </div>
               <p className="mt-2 text-sm">
-                <span className="text-emerald-400">✓ {overviewData.successCount}</span>
+                <span
+                  className="text-emerald-400"
+                  title={overviewData.successCount >= 10000 ? formatNumberWithCommas(overviewData.successCount) : undefined}
+                >
+                  ✓ {overviewData.successCount >= 10000 ? formatCompactNumber(overviewData.successCount) : overviewData.successCount}
+                </span>
                 <span className={`mx-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}>|</span>
-                <span className="text-red-400">✗ {overviewData.failureCount}</span>
+                <span
+                  className="text-red-400"
+                  title={overviewData.failureCount >= 10000 ? formatNumberWithCommas(overviewData.failureCount) : undefined}
+                >
+                  ✗ {overviewData.failureCount >= 10000 ? formatCompactNumber(overviewData.failureCount) : overviewData.failureCount}
+                </span>
               </p>
             </div>
             
