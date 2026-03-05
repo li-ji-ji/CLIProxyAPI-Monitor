@@ -2,6 +2,11 @@
 
 ## 2026-03-06
 
+- Explore 页模型图例排序切换：
+  - 点击"模型图例"右侧的排序标签可循环切换：首字母 → Token用量 → 次数 → 首字母。
+  - 排序计算在 `ModelLegend` 组件内部维护（`legendSort` state + `sortedModels` useMemo），不影响外部状态。
+  - 新增 `modelStats` prop（由 `ExplorePage` 从 `points` 汇总 tokens / requests），在切换时无需重复遍历。
+
 - Explore 页模型图例颜色优化（方案B 系统整改）：
   - 原 `MODEL_COLORS` 中5处色相/色调高度相似的颜色（浅蓝≈天青、浅红≈玫红、重复黄≈橙黄、浅绿≈绿、浅紫≈品红紫）影响图例区分度。
   - 替换方案：

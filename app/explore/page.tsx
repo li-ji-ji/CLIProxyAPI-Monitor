@@ -303,6 +303,14 @@ function Skeleton({ className }: { className?: string }) {
 // 独立的图例组件，使用 React.memo 避免不必要的重渲染
 import { memo } from "react";
 
+type LegendSort = "alpha" | "tokens" | "requests";
+const LEGEND_SORT_CYCLE: LegendSort[] = ["alpha", "tokens", "requests"];
+const LEGEND_SORT_LABELS: Record<LegendSort, string> = {
+  alpha: "首字母",
+  tokens: "Token用量",
+  requests: "请求次数",
+};
+
 type ModelLegendProps = {
   models: string[];
   hiddenModels: Set<string>;
@@ -311,6 +319,7 @@ type ModelLegendProps = {
   onMouseLeave: () => void;
   onClick: (model: string) => void;
   onCtrlClick: (model: string) => void;
+  modelStats?: Map<string, { tokens: number; requests: number }>;
 };
 
 const ModelLegend = memo(function ModelLegend({
@@ -321,17 +330,44 @@ const ModelLegend = memo(function ModelLegend({
   onMouseLeave,
   onClick,
   onCtrlClick,
+  modelStats,
 }: ModelLegendProps) {
+  const [legendSort, setLegendSort] = useState<LegendSort>("alpha");
+
+  const sortedModels = useMemo(() => {
+    if (legendSort === "tokens")
+      return [...models].sort((a, b) => (modelStats?.get(b)?.tokens ?? 0) - (modelStats?.get(a)?.tokens ?? 0));
+    if (legendSort === "requests")
+      return [...models].sort((a, b) => (modelStats?.get(b)?.requests ?? 0) - (modelStats?.get(a)?.requests ?? 0));
+    return [...models].sort((a, b) => a.localeCompare(b));
+  }, [models, legendSort, modelStats]);
+
   if (models.length === 0) return null;
+
+  const handleSortClick = () => {
+    const idx = LEGEND_SORT_CYCLE.indexOf(legendSort);
+    setLegendSort(LEGEND_SORT_CYCLE[(idx + 1) % LEGEND_SORT_CYCLE.length]);
+  };
   
   return (
     <div className="mt-3 rounded-xl bg-slate-900/30 p-3 ring-1 ring-slate-800">
-      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300">
-        <span className="text-slate-400">模型图例（悬停高亮，点击隐藏，Ctrl + 点击单独显示）</span>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-300">
+        <button
+          type="button"
+          onClick={handleSortClick}
+          className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-colors"
+          title="点击切换排序方式"
+        >
+          <span>模型图例</span>
+          <span className="rounded bg-slate-700/70 px-1 py-0.5 text-[10px] text-slate-400 hover:text-slate-300 transition-colors">
+            {LEGEND_SORT_LABELS[legendSort]} ↕
+          </span>
+        </button>
+        <span className="text-slate-500">（悬停高亮，点击隐藏，Ctrl + 点击单独显示）</span>
       </div>
       <div className="mt-2 max-h-20 overflow-auto pr-1">
         <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-slate-300">
-          {models.map((m) => {
+          {sortedModels.map((m) => {
             const isHidden = hiddenModels.has(m);
             return (
               <button
@@ -1233,6 +1269,17 @@ export default function ExplorePage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [points]);
 
+  // 各模型的 tokens / requests 汇总，供图例排序使用
+  const modelStats = useMemo(() => {
+    const map = new Map<string, { tokens: number; requests: number }>();
+    for (const p of points) {
+      if (!p.model) continue;
+      const cur = map.get(p.model) ?? { tokens: 0, requests: 0 };
+      map.set(p.model, { tokens: cur.tokens + (p.tokens ?? 0), requests: cur.requests + 1 });
+    }
+    return map;
+  }, [points]);
+
   const isUsingGlobalRange = selectionSource === "global";
 
   const presetDateLabel = useMemo(() => {
@@ -1775,6 +1822,7 @@ export default function ExplorePage() {
           onMouseLeave={handleLegendMouseLeave}
           onClick={handleLegendClick}
           onCtrlClick={handleLegendCtrlClickWithModels}
+          modelStats={modelStats}
         />
 
         <div className="mt-4 flex h-[75vh] flex-col gap-0">
