@@ -1241,6 +1241,9 @@ export default function ExplorePage() {
 
         if (!cancelled) {
           setData(json);
+          const pointCount = json.points?.length ?? 0;
+          // 点数超过 5000 自动启用过滤无效点
+          if (pointCount > 5000) setFilterInvalidPoints(true);
           setAppliedDays(json.days ?? rangeDays);
           setRouteOptions(Array.from(new Set(json.filters?.routes ?? [])));
           setNameOptions(Array.from(new Set(json.filters?.names ?? [])));
