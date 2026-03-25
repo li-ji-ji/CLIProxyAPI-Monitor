@@ -25,7 +25,7 @@
     "react-day-picker": "9.14.0",
     "react-dom": "19.2.4",
     "recharts": "^3.8.0",
-    "ws": "^8.19.0",
+    "ws": "^8.20.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
