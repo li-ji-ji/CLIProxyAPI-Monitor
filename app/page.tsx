@@ -646,6 +646,12 @@ export default function DashboardPage() {
         // }); // 已禁用 toast 通知
         // 同步成功后重新加载价格列表
         await loadPrices();
+
+        // 若价格存在变更，自动刷新一次面板以应用最新价格（并跳过 overview 缓存）
+        if (summary && Number(summary.updated) > 0) {
+          skipOverviewCacheRef.current = true;
+          setRefreshTrigger((prev) => prev + 1);
+        }
       }
     } catch (err) {
       const errorMsg = (err as Error).message;
