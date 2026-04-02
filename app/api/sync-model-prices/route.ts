@@ -59,6 +59,14 @@ async function hashString(value: string) {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// 统一价格精度到数据库列精度（numeric(10,4)），避免科学计数法/格式差异导致“假更新”
+function normalizePriceForDb(value: unknown): string {
+  const num = typeof value === "number" ? value : Number(value ?? 0);
+  if (!Number.isFinite(num)) return "0.0000";
+  const nonNegative = Math.max(0, num);
+  return nonNegative.toFixed(4);
+}
+
 type ModelsDevModel = {
   id: string;
   cost?: { input?: number; output?: number; cache_read?: number };
@@ -69,6 +77,8 @@ type ModelsDevProvider = {
 };
 
 type ModelsDevResponse = Record<string, ModelsDevProvider>;
+type PriceInfo = { input: number; output: number; cached: number };
+type PriceModeCandidate = { count: number; firstSeenOrder: number; price: PriceInfo };
 
 export async function POST(request: Request) {
   try {
@@ -141,19 +151,67 @@ export async function POST(request: Request) {
       modelsDevCache = modelsDevData;
     }
 
-    // 2. 构建模型ID到价格的映射
-    const priceMap = new Map<string, { input: number; output: number; cached: number }>();
+    // 2. 构建模型ID到价格的映射（同名用“众数”策略；并列众数取首次出现）
+    const priceModeBuckets = new Map<string, Map<string, PriceModeCandidate>>();
+    let seenOrder = 0;
+
     for (const provider of Object.values(modelsDevData)) {
       if (!provider.models) continue;
       for (const model of Object.values(provider.models)) {
         // 允许免费模型入库
         if (model.cost && (model.cost.input !== undefined || model.cost.output !== undefined)) {
-          priceMap.set(model.id, {
+          const priceInfo: PriceInfo = {
             input: model.cost.input ?? 0,
             output: model.cost.output ?? 0,
             cached: model.cost.cache_read ?? 0
-          });
+          };
+
+          // 以数据库精度归一后作为“价格组合”签名，避免格式差异影响众数统计
+          const signature = [
+            normalizePriceForDb(priceInfo.input),
+            normalizePriceForDb(priceInfo.cached),
+            normalizePriceForDb(priceInfo.output)
+          ].join("|");
+
+          const modelBucket = priceModeBuckets.get(model.id) ?? new Map<string, PriceModeCandidate>();
+          const existingCandidate = modelBucket.get(signature);
+
+          if (existingCandidate) {
+            existingCandidate.count += 1;
+          } else {
+            modelBucket.set(signature, {
+              count: 1,
+              firstSeenOrder: seenOrder,
+              price: priceInfo
+            });
+          }
+
+          priceModeBuckets.set(model.id, modelBucket);
+          seenOrder += 1;
         }
+      }
+    }
+
+    const priceMap = new Map<string, PriceInfo>();
+    for (const [modelId, candidates] of priceModeBuckets.entries()) {
+      let selected: PriceModeCandidate | null = null;
+
+      for (const candidate of candidates.values()) {
+        if (!selected) {
+          selected = candidate;
+          continue;
+        }
+
+        if (
+          candidate.count > selected.count ||
+          (candidate.count === selected.count && candidate.firstSeenOrder < selected.firstSeenOrder)
+        ) {
+          selected = candidate;
+        }
+      }
+
+      if (selected) {
+        priceMap.set(modelId, selected.price);
       }
     }
 
@@ -177,7 +235,7 @@ export async function POST(request: Request) {
     let skippedCount = 0;
     let failedCount = 0;
     const details: { model: string; status: string; matchedWith?: string; reason?: string }[] = [];
-    const priceUpdates: { model: string; priceInfo: { input: number; output: number; cached: number }; matchedKey: string }[] = [];
+    const priceUpdates: { model: string; priceInfo: PriceInfo; matchedKey: string }[] = [];
 
     for (const { id: modelId } of models) {
       let priceInfo = priceMap.get(modelId);
@@ -188,7 +246,7 @@ export async function POST(request: Request) {
         const lastDashIndex = modelId.lastIndexOf("-");
         if (lastDashIndex > 0) {
           const baseNameWithoutSuffix = modelId.substring(0, lastDashIndex);
-          let bestMatch: { key: string; value: { input: number; output: number; cached: number }; matchLength: number } | null = null;
+          let bestMatch: { key: string; value: PriceInfo; matchLength: number } | null = null;
           
           for (const [key, value] of priceMap.entries()) {
             if (key.startsWith(baseNameWithoutSuffix) || baseNameWithoutSuffix.startsWith(key)) {
@@ -216,7 +274,7 @@ export async function POST(request: Request) {
       // 模糊匹配
       if (!priceInfo) {
         const baseModelName = modelId.replace(/-\d{4,}.*$/, "").replace(/@.*$/, "");
-        let bestMatch: { key: string; value: { input: number; output: number; cached: number }; matchLength: number } | null = null;
+        let bestMatch: { key: string; value: PriceInfo; matchLength: number } | null = null;
         
         for (const [key, value] of priceMap.entries()) {
           if (key.includes(baseModelName)) {
@@ -271,9 +329,9 @@ export async function POST(request: Request) {
       existingRows.map((row) => [
         row.model,
         {
-          input: String(row.input ?? "0"),
-          cached: String(row.cached ?? "0"),
-          output: String(row.output ?? "0")
+          input: normalizePriceForDb(row.input),
+          cached: normalizePriceForDb(row.cached),
+          output: normalizePriceForDb(row.output)
         }
       ])
     );
@@ -281,9 +339,9 @@ export async function POST(request: Request) {
     // 6. 批量更新数据库（仅更新变化项）
     let updatedCount = 0;
     for (const { model: modelId, priceInfo } of priceUpdates) {
-      const nextInput = String(priceInfo.input);
-      const nextCached = String(priceInfo.cached);
-      const nextOutput = String(priceInfo.output);
+      const nextInput = normalizePriceForDb(priceInfo.input);
+      const nextCached = normalizePriceForDb(priceInfo.cached);
+      const nextOutput = normalizePriceForDb(priceInfo.output);
       const existing = existingMap.get(modelId);
 
       if (existing && existing.input === nextInput && existing.cached === nextCached && existing.output === nextOutput) {
