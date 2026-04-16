@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-04-15
+
+- 兼容 TypeScript 6.0.2 编译配置：
+  - 在 `tsconfig.json` 中新增 `ignoreDeprecations: "6.0"`，消除 TS6 对 `baseUrl` 的弃用阻断报错（TS5101）。
+  - 确保依赖升级到 `typescript@6.0.2` 后，项目 `lint / type-check / build` 可继续通过。
+
 ## 2026-04-02
 
 - 修复 models.dev 价格同步中的“假更新”问题：
