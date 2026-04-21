@@ -4,6 +4,7 @@
 
 - 新增 GitHub Actions `lint` 工作流（`.github/workflows/lint.yml`）：
   - 在 `push`（`main/master`）与 `pull_request` 触发，统一执行 `pnpm install --frozen-lockfile` 与 `pnpm lint`。
+  - 工作流增加 `permissions: contents: read` 最小权限配置，降低默认令牌权限暴露面。
   - 通过 CI 自动校验代码风格，减少未被本地发现的 lint 问题进入主分支。
 
 ## 2026-04-15
