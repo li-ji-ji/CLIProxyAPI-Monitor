@@ -13,23 +13,23 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.0.2",
+    "@neondatabase/serverless": "^1.1.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/postgres": "^0.10.0",
     "date-fns": "^4.1.0",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^0.577.0",
-    "next": "16.2.3",
+    "next": "16.2.4",
     "pg": "^8.20.0",
     "react": "19.2.5",
     "react-day-picker": "9.14.0",
-    "react-dom": "19.2.4",
+    "react-dom": "19.2.5",
     "recharts": "^3.8.1",
     "ws": "^8.20.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.2.2",
+    "@tailwindcss/postcss": "^4.2.4",
     "@types/node": "^25.6.0",
     "@types/pg": "^8.20.0",
     "@types/react": "19.2.14",
@@ -37,10 +37,10 @@
     "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
-    "eslint-config-next": "16.2.2",
-    "postcss": "^8.5.9",
+    "eslint-config-next": "16.2.4",
+    "postcss": "^8.5.12",
     "tailwindcss": "^4.2.2",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   },
   "pnpm": {
     "overrides": {
