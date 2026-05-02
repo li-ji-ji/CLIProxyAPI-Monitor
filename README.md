@@ -1,5 +1,5 @@
 > [!CAUTION]
-> #### 注：CPA 上游已于 [v6.10.0](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.10.0) 正式去除 `/usage` 接口，若继续使用本项目追踪使用数据，请一并配置 [adapter.js](#cpa-近端适配器adapterjs) 。
+> #### 注：CPA 上游已于 [v6.10.0](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.10.0) 正式去除 `/usage` 接口，若希望继续使用本项目追踪使用数据，请一并配置 [adapter.js](#cpa-近端适配器adapterjs) 。
 > 或者回退 v6.9.49 或更早版本。
 
 
@@ -66,14 +66,23 @@
 
 由于 CPA 新版已移除 `/usage` 接口，可将 [adapter.js](adapter.js) 部署在 CPA 近端，实现从 CPA Redis 队列聚合 usage，还原接口功能，再自动提供给本项目的 `/api/sync` 拉取。
 
-迁移时可在看板配置 `USAGE_API_BASE_URL=http://adapter-host:36871` 以正常使用看板的同步功能，同时保持对原管理接口的访问。
+部署脚本时可以添加反代以正常使用看板的同步功能，同时保持对原管理接口的访问。
 
-`adapter-host` 一般为 CPA 部署服务器 IP 。
+```
+your.domain {
+	reverse_proxy /usage* localhost:36871
+	reverse_proxy /v0/management/usage* localhost:36871
+	
+	reverse_proxy * localhost:8317
+}
+```
+
+或者在看板配置 `USAGE_API_BASE_URL=http://adapter-host:36871` ， `adapter-host` 一般为 CPA 部署服务器 IP 。
 
 ```
 curl -L -o adapter.js https://github.com/sxjeru/CLIProxyAPI-Monitor/raw/refs/heads/main/adapter.js
 npm install ioredis
-node adapter.js
+# node adapter.js
 
 # 推荐使用 PM2 
 npm install -g pm2
@@ -103,8 +112,8 @@ pm2 start adapter.js --name cpa-adapter
 | 环境变量 | 说明 | 默认值 |
 |---|---|---|
 | `ENABLE_PERIODIC_SYNC` | 是否启用内置定时 sync | `false` |
-| `DASHBOARD_URL` | 远端看板地址，如 `https://your-domain.com` | 空 |
-| `SYNC_TOKEN` | 远端看板 `/api/sync` 的 Bearer token，建议填看板的 `CRON_SECRET` 或 `PASSWORD` | 空 |
+| `DASHBOARD_URL` | Vercel 部署看板地址，如 `https://your-domain.com` | 空 |
+| `SYNC_TOKEN` | 远端看板 `/api/sync` 的 Bearer token，一般填前述 `CRON_SECRET` 或 `PASSWORD` | 空 |
 | `SYNC_INTERVAL` | 定时触发 `/api/sync` 的间隔（毫秒） | `600000` |
 | `SYNC_TIMEOUT_MS` | 单次 sync 超时（毫秒） | `300000` |
 | `SYNC_ON_START` | 启动后是否立即触发一次 sync | `false` |
