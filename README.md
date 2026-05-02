@@ -1,5 +1,5 @@
 > [!CAUTION]
-> #### 注：CPA 上游已于 [v6.10.0](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.10.0) 正式去除 `/usage` 接口，若要使用本项目追踪使用数据，请一并配置 [adapter.js](#cpa-近端适配器adapterjs) 。
+> #### 注：CPA 上游已于 [v6.10.0](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.10.0) 正式去除 `/usage` 接口，若继续使用本项目追踪使用数据，请一并配置 [adapter.js](#cpa-近端适配器adapterjs) 。
 > 或者回退 v6.9.49 或更早版本。
 
 
@@ -71,6 +71,7 @@
 `adapter-host` 一般为 CPA 部署服务器 IP 。
 
 ```
+curl -L -o adapter.js https://github.com/sxjeru/CLIProxyAPI-Monitor/raw/refs/heads/main/adapter.js
 npm install ioredis
 node adapter.js
 

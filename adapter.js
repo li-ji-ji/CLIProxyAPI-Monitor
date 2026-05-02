@@ -42,6 +42,7 @@ const CONFIG = {
 // 内存缓冲区，用于存放最近拉取的记录
 let usageBuffer = [];
 let syncInProgress = false;
+let adapterStarted = false;
 
 // 初始化 Redis 客户端
 const redis = new Redis({
@@ -50,6 +51,11 @@ const redis = new Redis({
   password: CONFIG.redis.password,
   lazyConnect: true,
   retryStrategy: (times) => Math.min(times * 50, 2000),
+});
+
+redis.on('error', (error) => {
+  if (!adapterStarted) return;
+  console.error('[redis] Connection error:', error.message);
 });
 
 function normalizeRecord(record) {
@@ -166,6 +172,23 @@ async function drainQueue() {
   }
 }
 
+async function verifyRedisConnection() {
+  try {
+    if (redis.status === 'ready') return;
+    await redis.connect();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    console.error('[startup] Failed to connect to CPA Redis usage queue');
+    console.error(`[startup] Target: ${CONFIG.redis.host}:${CONFIG.redis.port}`);
+    console.error(`[startup] Key: ${CONFIG.redis.key}`);
+    console.error(`[startup] Reason: ${message}`);
+    console.error('[startup] Check whether Management is enabled, usage-statistics-enabled is true, and CPA_SECRET_KEY/port are correct.');
+
+    throw error;
+  }
+}
+
 async function triggerSync(reason = 'interval') {
   const syncConfig = getSyncConfig();
 
@@ -222,19 +245,41 @@ async function triggerSync(reason = 'interval') {
   }
 }
 
-// 定时任务
-setInterval(drainQueue, CONFIG.pollInterval);
-drainQueue();
-
 const syncConfig = getSyncConfig();
-if (syncConfig.enabled) {
-  setInterval(() => {
-    triggerSync('interval');
-  }, syncConfig.interval);
 
-  if (syncConfig.syncOnStart) {
-    triggerSync('startup');
+async function startAdapter() {
+  await verifyRedisConnection();
+
+  adapterStarted = true;
+
+  // 定时任务
+  setInterval(drainQueue, CONFIG.pollInterval);
+  await drainQueue();
+
+  if (syncConfig.enabled) {
+    setInterval(() => {
+      triggerSync('interval');
+    }, syncConfig.interval);
+
+    if (syncConfig.syncOnStart) {
+      void triggerSync('startup');
+    }
   }
+
+  server.listen(CONFIG.port, () => {
+    console.log(`Adapter running at http://localhost:${CONFIG.port}`);
+    console.log(`Polling CPA Redis at ${CONFIG.redis.host}:${CONFIG.redis.port}`);
+    console.log(`Redis queue key: ${CONFIG.redis.key}`);
+    console.log(`Clear buffer on read: ${CONFIG.clearBufferOnRead}`);
+
+    const syncUrl = getSyncUrl();
+    console.log(`Periodic sync enabled: ${syncConfig.enabled}`);
+    if (syncConfig.enabled) {
+      console.log(`Periodic sync target: ${syncUrl || 'invalid DASHBOARD_URL'}`);
+      console.log(`Periodic sync interval: ${syncConfig.interval}ms`);
+      console.log(`Periodic sync on start: ${syncConfig.syncOnStart}`);
+    }
+  });
 }
 
 /**
@@ -319,17 +364,6 @@ const server = createServer((req, res) => {
   }
 });
 
-server.listen(CONFIG.port, () => {
-  console.log(`Adapter running at http://localhost:${CONFIG.port}`);
-  console.log(`Polling CPA Redis at ${CONFIG.redis.host}:${CONFIG.redis.port}`);
-  console.log(`Redis queue key: ${CONFIG.redis.key}`);
-  console.log(`Clear buffer on read: ${CONFIG.clearBufferOnRead}`);
-
-  const syncUrl = getSyncUrl();
-  console.log(`Periodic sync enabled: ${syncConfig.enabled}`);
-  if (syncConfig.enabled) {
-    console.log(`Periodic sync target: ${syncUrl || 'invalid DASHBOARD_URL'}`);
-    console.log(`Periodic sync interval: ${syncConfig.interval}ms`);
-    console.log(`Periodic sync on start: ${syncConfig.syncOnStart}`);
-  }
+startAdapter().catch(() => {
+  process.exitCode = 1;
 });
