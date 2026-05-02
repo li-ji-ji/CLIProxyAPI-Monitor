@@ -2,6 +2,10 @@
 
 ## 2026-05-02
 
+- 修复 `adapter.js` 连接 CPA 管理端口时可能被 `ioredis` Ready Check 提前断开的兼容性问题：
+  - 在 Redis 客户端配置中禁用 `enableReadyCheck`，避免连接建立后自动发送 `INFO` 命令。
+  - 兼容仅实现 `AUTH`、`LPOP`、`PING` 等基础命令的极简 Redis 模拟端，减少启动阶段 `Connection is closed` 错误。
+
 - 新增独立 `usage` 来源环境变量切换：
   - 看板新增 `USAGE_API_BASE_URL`，`/api/sync` 拉取 usage 时优先走该地址；未设置时回退到 `CLIPROXY_API_BASE_URL`。
   - 适配 CPA adapter 场景：可继续用 `CLIPROXY_API_BASE_URL` 访问原管理接口，同时仅将 usage 请求切到 `adapter.js` 暴露的 `/usage`。

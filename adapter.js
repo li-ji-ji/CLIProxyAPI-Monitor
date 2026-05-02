@@ -50,6 +50,7 @@ const redis = new Redis({
   port: CONFIG.redis.port,
   password: CONFIG.redis.password,
   lazyConnect: true,
+  enableReadyCheck: false,
   retryStrategy: (times) => Math.min(times * 50, 2000),
 });
 
