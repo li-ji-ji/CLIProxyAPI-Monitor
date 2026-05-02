@@ -116,13 +116,9 @@ pm2 start adapter.js --name cpa-adapter
 3. 若开启 `ENABLE_PERIODIC_SYNC=true`，adapter 会定时请求远端看板 `/api/sync`
 4. 看板 `/api/sync` 再回拉 adapter 的 `/usage`，并写入数据库
 
-### 关于 `CLEAR_BUFFER_ON_READ`
+----
 
-- 设为 `true`：更适合“定时同步 + 节约内存”的增量模式
-- 设为 `false`：更适合保留快照，容忍重复读取，由数据库去重
-
-建议：
-- 追求低内存时，使用 `CLEAR_BUFFER_ON_READ=true`
-- 更在意故障后可重复拉取时，使用 `CLEAR_BUFFER_ON_READ=false`
-
-注意：`CLEAR_BUFFER_ON_READ=true` 时，远端一旦成功读取 `/usage`，adapter 就会清空内存缓冲；如果后续远端入库失败，该批数据无法由 adapter 重新提供。
+### 鸣谢
+- [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)
+- [Linux.DO](https://linux.do/)
+- [Vercel](https://vercel.com/)
