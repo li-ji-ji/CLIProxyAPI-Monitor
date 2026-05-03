@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-05-02
+
+- 为 `adapter.js` 的 usage 授权补充基础防爆破限制：
+  - `/usage`、`/v0/management/usage` 继续校验 `Authorization: Bearer <CPA_SECRET_KEY>`。
+  - 同一来源 IP 连续鉴权失败达到阈值后会临时锁定，并返回 `429` 与 `Retry-After`，降低口令被爆破的风险。
+  - 新增可调环境变量：`USAGE_AUTH_MAX_ATTEMPTS`、`USAGE_AUTH_LOCKOUT_MS`、`USAGE_AUTH_CLEANUP_MS`。
+
+- 修复 `adapter.js` 连接 CPA 管理端口时可能被 `ioredis` Ready Check 提前断开的兼容性问题：
+  - 在 Redis 客户端配置中禁用 `enableReadyCheck`，避免连接建立后自动发送 `INFO` 命令。
+  - 兼容仅实现 `AUTH`、`LPOP`、`PING` 等基础命令的极简 Redis 模拟端，减少启动阶段 `Connection is closed` 错误。
+
+- 新增独立 `usage` 来源环境变量切换：
+  - 看板新增 `USAGE_API_BASE_URL`，`/api/sync` 拉取 usage 时优先走该地址；未设置时回退到 `CLIPROXY_API_BASE_URL`。
+  - 适配 CPA adapter 场景：可继续用 `CLIPROXY_API_BASE_URL` 访问原管理接口，同时仅将 usage 请求切到 `adapter.js` 暴露的 `/usage`。
+  - 同步更新 `.env.example` 与 `README.md` 的环境变量说明，便于部署时直接配置。
+
 ## 2026-04-15
 
 - 兼容 TypeScript 6.0.2 编译配置：

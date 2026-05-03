@@ -1,3 +1,8 @@
+> [!CAUTION]
+> #### 注：CPA 上游已于 [v6.10.0](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.10.0) 正式去除 `/usage` 接口，若希望继续使用本项目追踪使用数据，请一并配置 [adapter.js](#cpa-近端适配器adapterjs) 。
+> 或者回退 v6.9.49 或更早版本。
+
+
 # CLIProxyAPI 数据看板
 
 基于 Next.js App Router + Drizzle + Postgres 的数据看板，用于自动拉取上游 CLIProxyAPI 使用数据，**持久化到数据库**，并进行数据可视化。
@@ -16,6 +21,7 @@
 	|---|---|---|
 	| CLIPROXY_SECRET_KEY | 登录 CLIProxyAPI 后台管理界面的密钥 | 无 |
 	| CLIPROXY_API_BASE_URL | 自部署的 CLIProxyAPI 根地址 | 如 `https://your-domain.com/` |
+	| USAGE_API_BASE_URL | usage 数据源接口 | 可选；不填时沿用 `CLIPROXY_API_BASE_URL`，接 adapter 时可单独指向 |
 	| DATABASE_URL | 数据库连接串（仅支持 Postgres） | 可直接使用 Neon |
 	| DATABASE_DRIVER | `pg` 或 `neon` | 可选；默认自动检测 |
 	| DATABASE_CA | DB 服务端 CA 证书 | 可选；PEM 原始内容或 Base64 编码均可 |
@@ -53,3 +59,75 @@
 3. 创建表结构：`pnpm run db:push`
 4. 同步数据：GET/POST `/api/sync`（可选）
 5. 启动开发：`pnpm dev`
+
+---
+
+## CPA 近端适配器（adapter.js）
+
+由于 CPA 新版已移除 `/usage` 接口，可将 [adapter.js](adapter.js) 部署在 CPA 近端，实现从 CPA Redis 队列聚合 usage，还原接口功能，再自动提供给本项目的 `/api/sync` 拉取。
+
+部署脚本时可以添加反代以正常使用看板的同步功能，同时保持对原管理接口的访问。
+
+```
+your.domain {
+	reverse_proxy /usage* localhost:36871
+	reverse_proxy /v0/management/usage* localhost:36871
+	
+	reverse_proxy * localhost:8317
+}
+```
+
+或者在看板配置 `USAGE_API_BASE_URL=http://adapter-host:36871` ， `adapter-host` 一般为 CPA 部署服务器 IP 。
+
+```
+curl -L -o adapter.js https://github.com/sxjeru/CLIProxyAPI-Monitor/raw/refs/heads/main/adapter.js
+npm install ioredis
+# node adapter.js
+
+# 推荐使用 PM2 
+npm install -g pm2
+pm2 start adapter.js --name cpa-adapter
+```
+
+### 环境变量
+
+| 环境变量 | 说明 | 默认值 |
+|---|---|---|
+| `CPA_REDIS_HOST` | CPA Redis 主机 | `127.0.0.1` |
+| `CPA_REDIS_PORT` | CPA Redis 端口 | `8317` |
+| `CPA_SECRET_KEY` | CPA Redis 访问密钥，即前述 `CLIPROXY_SECRET_KEY` | 空 |
+| `CPA_REDIS_KEY` | usage 队列 key | `queue` |
+| `ADAPTER_PORT` | adapter 监听端口 | `36871` |
+| `POLL_INTERVAL` | 从 Redis 拉取间隔（毫秒） | `15000` |
+| `MAX_BUFFER_SIZE` | 内存缓冲上限 | `50000` |
+| `BATCH_SIZE` | 每次拉取条数 | `500` |
+| `CLEAR_BUFFER_ON_READ` | 读取 `/usage` 后是否清空缓冲 | `false` |
+| `USAGE_AUTH_MAX_ATTEMPTS` | usage 鉴权最大连续失败次数 | `10` |
+| `USAGE_AUTH_LOCKOUT_MS` | usage 鉴权失败后的锁定时长（毫秒） | `1800000` |
+| `USAGE_AUTH_CLEANUP_MS` | 失败记录清理窗口（毫秒） | `3600000` |
+
+
+### 定时 sync 环境变量
+
+| 环境变量 | 说明 | 默认值 |
+|---|---|---|
+| `ENABLE_PERIODIC_SYNC` | 是否启用内置定时 sync | `false` |
+| `DASHBOARD_URL` | Vercel 部署看板地址，如 `https://your-domain.com` | 空 |
+| `SYNC_TOKEN` | 远端看板 `/api/sync` 的 Bearer token，一般填前述 `CRON_SECRET` 或 `PASSWORD` | 空 |
+| `SYNC_INTERVAL` | 定时触发 `/api/sync` 的间隔（毫秒） | `600000` |
+| `SYNC_TIMEOUT_MS` | 单次 sync 超时（毫秒） | `300000` |
+| `SYNC_ON_START` | 启动后是否立即触发一次 sync | `false` |
+
+### 工作方式
+
+1. `adapter.js` 定时从 CPA Redis 队列拉取 usage 记录
+2. 聚合后通过本地 `/usage` 或 `/v0/management/usage` 暴露给外部
+3. 若开启 `ENABLE_PERIODIC_SYNC=true`，adapter 会定时请求远端看板 `/api/sync`
+4. 看板 `/api/sync` 再回拉 adapter 的 `/usage`，并写入数据库
+
+----
+
+### 鸣谢
+- [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)
+- [Linux.DO](https://linux.do/)
+- [Vercel](https://vercel.com/)

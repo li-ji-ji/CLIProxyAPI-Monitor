@@ -136,7 +136,7 @@ async function performSync(request: Request) {
     return NextResponse.json({ error: (error as Error).message }, { status: 501 });
   }
 
-  const usageUrl = `${config.cliproxy.baseUrl.replace(/\/$/, "")}/usage`;
+  const usageUrl = `${config.cliproxy.usageBaseUrl.replace(/\/$/, "")}/usage`;
   const pulledAt = new Date();
 
   let response: Response;
