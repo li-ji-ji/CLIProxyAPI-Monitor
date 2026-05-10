@@ -35,6 +35,11 @@ const CONFIG = {
   maxBufferSize: parseInt(process.env.MAX_BUFFER_SIZE || '50000'),
   // 每次拉取的最大记录数
   batchSize: parseInt(process.env.BATCH_SIZE || '500'),
+  // Redis 断连后的重连间隔
+  reconnectInterval: parseInt(process.env.REDIS_RECONNECT_INTERVAL || '5000'),
+  // 诊断 Redis 队列记录；默认关闭，避免日志泄露敏感信息
+  debugUsageRecords: (process.env.DEBUG_USAGE_RECORDS || 'false').toLowerCase() === 'true',
+  debugRawUsageRecords: (process.env.DEBUG_RAW_USAGE_RECORDS || 'false').toLowerCase() === 'true',
   // 访问 /usage 后是否清空内存缓冲区；true=增量导出，false=保留全量内存快照
   clearBufferOnRead: (process.env.CLEAR_BUFFER_ON_READ || 'false').toLowerCase() === 'true',
   // 远端 dashboard sync 配置
@@ -52,6 +57,7 @@ const CONFIG = {
 let usageBuffer = [];
 let syncInProgress = false;
 let adapterStarted = false;
+let redisReconnectTimer = null;
 const failedAuthAttempts = new Map();
 
 // 初始化 Redis 客户端
@@ -67,6 +73,11 @@ const redis = new Redis({
 redis.on('error', (error) => {
   if (!adapterStarted) return;
   console.error('[redis] Connection error:', error.message);
+  scheduleRedisReconnect();
+});
+
+redis.on('ready', () => {
+  stopRedisReconnect();
 });
 
 function safeEqualText(left, right) {
@@ -144,10 +155,101 @@ function normalizeRecord(record) {
   };
 }
 
+function redactUsageRecord(record) {
+  if (!record || typeof record !== 'object') return record;
+
+  return {
+    ...record,
+    api_key: record.api_key ? '[redacted]' : record.api_key,
+  };
+}
+
+function getRecordTokenTotal(record) {
+  const tokens = record && typeof record === 'object' && record.tokens && typeof record.tokens === 'object'
+    ? record.tokens
+    : {};
+  const input = Number(tokens.input_tokens || 0);
+  const output = Number(tokens.output_tokens || 0);
+  const cached = Number(tokens.cached_tokens || 0);
+  const reasoning = Number(tokens.reasoning_tokens || 0);
+  const total = Number(tokens.total_tokens || (input + output + reasoning));
+
+  return Number.isFinite(total) ? total : 0;
+}
+
+function logUsageRecordDiagnostic(record, rawRecord) {
+  if (!CONFIG.debugUsageRecords && !CONFIG.debugRawUsageRecords) return;
+
+  const tokenTotal = getRecordTokenTotal(record);
+  const summary = {
+    timestamp: record.timestamp,
+    endpoint: record.endpoint,
+    provider: record.provider,
+    model: record.model,
+    alias: record.alias,
+    source: record.source,
+    auth_index: record.auth_index,
+    request_id: record.request_id,
+    failed: record.failed,
+    tokenTotal,
+    tokens: record.tokens,
+  };
+
+  if (CONFIG.debugUsageRecords || tokenTotal === 0) {
+    console.log('[usage-debug] queue record summary:', summary);
+  }
+
+  if (CONFIG.debugRawUsageRecords) {
+    try {
+      console.log('[usage-debug] queue record raw:', redactUsageRecord(JSON.parse(rawRecord)));
+    } catch {
+      console.log('[usage-debug] queue record raw:', rawRecord);
+    }
+  }
+}
+
 function toPositiveInt(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return parsed;
+}
+
+function getReconnectInterval() {
+  return toPositiveInt(CONFIG.reconnectInterval, 5000);
+}
+
+async function ensureRedisConnected() {
+  if (redis.status === 'ready') return true;
+  if (redis.status === 'connecting' || redis.status === 'reconnecting') return false;
+
+  try {
+    await redis.connect();
+    return redis.status === 'ready';
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[redis] Reconnect failed:', message);
+    return false;
+  }
+}
+
+function stopRedisReconnect() {
+  if (!redisReconnectTimer) return;
+  clearInterval(redisReconnectTimer);
+  redisReconnectTimer = null;
+  console.log('[redis] Reconnected');
+}
+
+function scheduleRedisReconnect() {
+  if (redisReconnectTimer) return;
+
+  const reconnectInterval = getReconnectInterval();
+  console.warn(`[redis] Start reconnect loop, interval=${reconnectInterval}ms`);
+
+  redisReconnectTimer = setInterval(() => {
+    void ensureRedisConnected();
+  }, reconnectInterval);
+
+  void ensureRedisConnected();
 }
 
 function getAuthConfig() {
@@ -258,8 +360,8 @@ function getSyncUrl() {
  */
 async function drainQueue() {
   try {
-    if (redis.status !== 'ready') {
-      await redis.connect();
+    if (!(await ensureRedisConnected())) {
+      return;
     }
 
     // 使用 LPOP count 拉取数据
@@ -278,6 +380,7 @@ async function drainQueue() {
           console.error('Skipped invalid record:', rawRecord);
           continue;
         }
+        logUsageRecordDiagnostic(normalized, rawRecord);
         parsedRecords.push(normalized);
       } catch (e) {
         console.error('Failed to parse record:', rawRecord);
@@ -299,8 +402,8 @@ async function drainQueue() {
 
 async function verifyRedisConnection() {
   try {
-    if (redis.status === 'ready') return;
-    await redis.connect();
+    if (await ensureRedisConnected()) return;
+    throw new Error(`Redis not ready, current status: ${redis.status}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -396,6 +499,8 @@ async function startAdapter() {
     console.log(`Polling CPA Redis at ${CONFIG.redis.host}:${CONFIG.redis.port}`);
     console.log(`Redis queue key: ${CONFIG.redis.key}`);
     console.log(`Clear buffer on read: ${CONFIG.clearBufferOnRead}`);
+    console.log(`Usage debug records: ${CONFIG.debugUsageRecords}`);
+    console.log(`Usage debug raw records: ${CONFIG.debugRawUsageRecords}`);
     console.log(`Usage API auth enabled: ${Boolean(CONFIG.usageApiToken)}`);
     if (CONFIG.usageApiToken) {
       const authConfig = getAuthConfig();

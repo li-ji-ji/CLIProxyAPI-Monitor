@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-05-10
+
+- 为 `adapter.js` 增加 Redis 连接错误后的定时无限重连：
+  - 新增 `REDIS_RECONNECT_INTERVAL`，默认每 5 秒重试一次连接。
+  - 当出现 `Connection error` 时自动启动重连循环，恢复后自动停止，避免适配器因上游 Redis/Management 短暂不可用而长期失联。
+
+- 为 `adapter.js` 增加 Redis 用量队列诊断日志开关：
+  - 新增 `DEBUG_USAGE_RECORDS=true` 输出每条队列记录的安全摘要，便于判断流式请求是否在上游队列中已经是 0 token。
+  - 新增 `DEBUG_RAW_USAGE_RECORDS=true` 输出脱敏后的原始队列记录，默认关闭，避免日志暴露 `api_key`。
+  - 启动日志会显示两个诊断开关状态，方便确认排查配置是否生效。
+
 ## 2026-05-02
 
 - 为 `adapter.js` 的 usage 授权补充基础防爆破限制：
