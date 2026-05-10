@@ -1,5 +1,5 @@
 > [!CAUTION]
-> #### 注：CPA 上游已于 [v6.10.0](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.10.0) 正式去除 `/usage` 接口，若希望继续使用本项目追踪使用数据，请一并配置 [adapter.js](#cpa-近端适配器adapterjs) 。
+> #### 注：CPA 上游已于 [v6.10.0](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.10.0) 正式去除 `/usage` 接口，若希望继续使用本项目追踪用量，请一并配置 [adapter.js](#cpa-近端适配器adapterjs) 。
 > 或者回退 v6.9.49 或更早版本。
 
 
@@ -64,14 +64,14 @@
 
 ## CPA 近端适配器（adapter.js）
 
-由于 CPA 新版已移除 `/usage` 接口，可将 [adapter.js](adapter.js) 部署在 CPA 近端，实现从 CPA Redis 队列聚合 usage，还原接口功能，再自动提供给本项目的 `/api/sync` 拉取。
+由于 CPA 新版已移除 `/usage` 接口，可将 [adapter.js](adapter.js) 部署在 CPA 同端，实现从 CPA Redis 队列聚合 usage，还原接口功能，再自动提供给本项目的 `/api/sync` 拉取。
 
 部署脚本时可以添加反代以正常使用看板的同步功能，同时保持对原管理接口的访问。
 
 ```
 your.domain {
-	reverse_proxy /usage* localhost:36871
-	reverse_proxy /v0/management/usage* localhost:36871
+	reverse_proxy /usage localhost:36871
+	reverse_proxy /v0/management/usage localhost:36871
 	
 	reverse_proxy * localhost:8317
 }
