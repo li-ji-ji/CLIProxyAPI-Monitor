@@ -121,7 +121,9 @@ function normalizeRecord(record) {
   if (!record || typeof record !== 'object') return null;
 
   const model = typeof record.model === 'string' && record.model.trim() ? record.model.trim() : 'unknown';
-  const endpoint = typeof record.endpoint === 'string' && record.endpoint.trim() ? record.endpoint.trim() : 'default';
+  const apiKey = typeof record.api_key === 'string' && record.api_key.trim() ? record.api_key.trim() : '';
+  const authType = typeof record.auth_type === 'string' && record.auth_type.trim() ? record.auth_type.trim() : '';
+  const endpoint = apiKey || authType || (typeof record.endpoint === 'string' && record.endpoint.trim() ? record.endpoint.trim() : 'default');
   const source = typeof record.source === 'string' ? record.source : '';
   const timestamp = typeof record.timestamp === 'string' && record.timestamp.trim()
     ? record.timestamp
@@ -184,6 +186,8 @@ function logUsageRecordDiagnostic(record, rawRecord) {
   const summary = {
     timestamp: record.timestamp,
     endpoint: record.endpoint,
+    auth_type: record.auth_type,
+    api_key: record.api_key ? '[redacted]' : record.api_key,
     provider: record.provider,
     model: record.model,
     alias: record.alias,

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-05-21
+
+- 调整 [adapter.js](adapter.js) 的 route 字段映射：
+  - 聚合写库前，`route`（适配器内部沿用 `endpoint` 字段）改为优先取 `api_key`，其次取 `auth_type`，最后才回退到原始 `endpoint`。
+  - 修复上游队列中 `endpoint` 为 `POST /v1/chat/completions` 时被原样入库，导致 route 异常的问题。
+  - 调试摘要日志中新增 `auth_type`，并对 `api_key` 做脱敏显示，便于排查字段来源且避免泄露敏感值。
+
 ## 2026-05-10
 
 - 为 `adapter.js` 增加 Redis 连接错误后的定时无限重连：
